@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ws6/calculator/extraction"
@@ -163,7 +164,7 @@ func tableFieldfromMsi(m map[string]interface{}) (*TableField, error) {
 	return ret, nil
 }
 
-func (self *TimeCDCByTable) GetPrimaryKeyName(ctx context.Context, f *TableField) (string, error) {
+func (self *TimeCDCByTable) GetPrimaryKeyName(ctx context.Context, f *TableField) ([]string, error) {
 	query := fmt.Sprintf(
 		`SELECT 
      KU.table_name as table_name
@@ -175,20 +176,27 @@ INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS KU
     ON TC.CONSTRAINT_TYPE = 'PRIMARY KEY' 
     AND TC.CONSTRAINT_NAME = KU.CONSTRAINT_NAME 
      AND KU.table_name='%s'
-	 AND KU.TABLE_SCHEMA = '%s'`,
+	 AND KU.TABLE_SCHEMA = '%s'
+	order by KU.table_name,  ku.ORDINAL_POSITION 
+	`,
 		f.TableName,
 		f.SchameName,
 	)
 	founds, err := self.db.MapContext(ctx, self.db.Db, query, nil)
 	if err != nil {
 		fmt.Println(err.Error())
-		return "", nil
+		return nil, nil
 	}
+	ret := []string{}
 	for _, found := range founds {
-		return msi.ToString(found[`primary_key_column`])
+		topush, err := msi.ToString(found[`primary_key_column`])
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, topush)
 		//unable to handle multiple primary_key_col if exists
 	}
-	return "", nil
+	return ret, nil
 }
 
 func (self *TimeCDCByTable) GenerateIncrementalRefreshQueryWithTime(f *TableField, p time.Time, limit int, offset int64) string {
@@ -211,13 +219,15 @@ func (self *TimeCDCByTable) GenerateIncrementalRefreshQueryWithTime(f *TableFiel
 	*
 	FROM [%s].[%s]
 	WHERE 1=1
+	AND [%s] is not null
 	%s
-	ORDER BY %s ASC
+	ORDER BY [%s] ASC
 	%s
 	`
 	query = fmt.Sprintf(query,
 		f.SchameName,
 		f.TableName,
+		f.ColumnName,
 		timefilter,
 		f.ColumnName,
 		offsetlimitStr,
@@ -226,12 +236,19 @@ func (self *TimeCDCByTable) GenerateIncrementalRefreshQueryWithTime(f *TableFiel
 	return query
 }
 
-func msiToEventSpec(primaryKeyName string, f *TableField, m map[string]interface{}) *specs.EventMessage {
+func msiToEventSpec(primaryKeyNames []string, f *TableField, m map[string]interface{}) *specs.EventMessage {
 	ret := new(specs.EventMessage)
 	ret.ResourceType = fmt.Sprintf(`[%s].[%s]`, f.SchameName, f.TableName)
-	ret.ResoureId = fmt.Sprintf("%v", m[primaryKeyName])
+	ret.EventType = `Update`
+	resourceId := []string{}
+	for _, pk := range primaryKeyNames {
+		resourceId = append(resourceId, fmt.Sprintf("%v", m[pk]))
+	}
+	ret.ResourceId = strings.Join(resourceId, "-")
+	ret.ResourceKey = strings.Join(primaryKeyNames, "-")
+
 	ret.MetaData = m
-	event := fmt.Sprintf(`%s-%s-%v`, ret.ResourceType, ret.ResoureId, m[f.ColumnName])
+	event := fmt.Sprintf(`%s-%s-%v`, ret.ResourceType, ret.ResourceId, m[f.ColumnName])
 	ret.EventId = fmt.Sprintf("%x", md5.Sum([]byte(event)))
 	ret.DateCreated = fmt.Sprintf("%v", m[f.ColumnName]) // or time.Now if configured
 	ret.FieldChanges = make(map[string]*specs.Change)
@@ -253,16 +270,21 @@ func (self *TimeCDCByTable) GetLimit() int {
 func (self *TimeCDCByTable) GenerateItem(ctx context.Context, f *TableField, p *progressor.Progress, recv chan *klib.Message) error {
 	limit := self.GetLimit() //todo load from config
 	offset := int64(0)
-	primaryKeyName, err := self.GetPrimaryKeyName(ctx, f)
+	primaryKeyNames, err := self.GetPrimaryKeyName(ctx, f)
 	if err != nil {
 		return err
 	}
-	begin := p.Timestamp
+	begin := time.Time{}
+	if p != nil {
+		begin = p.Timestamp
+	}
+
 	for {
 		query := self.GenerateIncrementalRefreshQueryWithTime(f, begin, limit, offset)
 		offset += int64(limit)
 		founds, err := self.db.MapContext(ctx, self.db.Db, query, nil)
 		if err != nil {
+			fmt.Println(query)
 			return err
 		}
 		if len(founds) == 0 {
@@ -270,7 +292,7 @@ func (self *TimeCDCByTable) GenerateItem(ctx context.Context, f *TableField, p *
 		}
 		for _, found := range founds {
 			topush := new(klib.Message)
-			evt := msiToEventSpec(primaryKeyName, f, found)
+			evt := msiToEventSpec(primaryKeyNames, f, found)
 			topush.Value, err = json.Marshal(evt)
 			if err != nil {
 				return err
@@ -332,9 +354,8 @@ func (self *TimeCDCByTable) Transform(ctx context.Context, eventMsg *klib.Messag
 					return
 				}
 			}
-			if err != nil {
-				fmt.Println(err.Error())
-				return
+			if prog == nil {
+				prog = new(progressor.Progress)
 			}
 
 			if err := self.GenerateItem(ctx, f, prog, ret); err != nil {
