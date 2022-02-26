@@ -51,15 +51,9 @@ func (self *TimeCDC) SaveProgressOnFail(error) bool {
 	return false
 }
 func (self *TimeCDC) UpdateProgress(item map[string]interface{}, p *progressor.Progress) error {
-	s, e0 := msi.ToString(item[`modify_date`])
-	if e0 != nil {
 
-		fmt.Println(e0.Error())
-	}
-	fmt.Println(s)
 	if t0, ok := item[`modify_date`].(time.Time); ok {
-		fmt.Println(`it is a time`)
-		fmt.Println(t0)
+
 		p.Timestamp = t0
 		return nil
 	}
@@ -88,7 +82,7 @@ func (self *TimeCDC) NewIncref(cfg *confighelper.SectionConfig) (extraction.Incr
 }
 
 func (self *TimeCDC) getTablesInclude() []string {
-	tablesIncludeStr := self.cfg.ConfigMap[`tables_include`]
+	tablesIncludeStr := self.cfg.ConfigMap[`tables_names_include`]
 	if tablesIncludeStr == "" {
 		return nil
 	}
@@ -121,7 +115,6 @@ order by modify_date asc `,
 }
 func (self *TimeCDC) GetChan(ctx context.Context, p *progressor.Progress) (chan map[string]interface{}, error) {
 	query := self.makeQuery(p)
-	fmt.Println(query)
 
 	ret := make(chan map[string]interface{})
 	go func() {
@@ -132,9 +125,40 @@ func (self *TimeCDC) GetChan(ctx context.Context, p *progressor.Progress) (chan 
 			return
 		}
 		for _, found := range founds {
+			schema_name, _ := msi.ToString(found[`schema_name`])
+			table_name, _ := msi.ToString(found[`name`])
+			if !self.IsAllowedTable(schema_name, table_name) {
+				continue
+			}
+
 			ret <- found
 		}
 	}()
 
 	return ret, nil
+}
+
+func (self *TimeCDC) Tables() []string {
+	s, ok := self.cfg.ConfigMap[`tables_include`]
+	if !ok {
+		return []string{}
+	}
+	return strings.Split(s, ",")
+}
+
+func (self *TimeCDC) IsAllowedTable(schema, tableName string) bool {
+	tableFields := self.Tables()
+	if len(tableFields) == 0 {
+		return true //!!!if user didnt do it. it leaves a usage to pullout everything
+	}
+
+	k := fmt.Sprintf(`%s.%s`, schema, tableName)
+	for _, tf := range tableFields {
+		if strings.ToLower(k) == strings.ToLower(tf) {
+			return true
+		}
+	}
+
+	return false
+
 }

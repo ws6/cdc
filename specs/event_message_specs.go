@@ -2,12 +2,12 @@ package specs
 
 //ref https://confluence.illumina.com/display/FBS/Event+Message+Specs+Design
 type EventMessage struct {
-	EventId      string `json:",omitempty"`
-	DateCreated  string `json:",omitempty"`
-	EventType    string `json:",omitempty"`
-	ResourceType string `json:",omitempty"`
-	ResourceId   string `json:",omitempty"`
-	ResourceKey  string `json:",omitempty"`
+	EventId      string
+	DateCreated  string
+	EventType    string
+	ResourceType string
+	ResourceId   string
+	ResourceKey  string
 	FieldChanges map[string]*Change
 	MetaData     map[string]interface{} `json:",omitempty"`
 }
