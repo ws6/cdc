@@ -312,7 +312,7 @@ func (self *TimeCDCByTable) IsAllowedTableFields(f *TableField) bool {
 
 }
 
-func (self *TimeCDCByTable) GenerateItem(ctx context.Context, f *TableField, p *progressor.Progress, recv chan *klib.Message) error {
+func (self *TimeCDCByTable) GenerateItem(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan *klib.Message) error {
 	limit := self.GetLimit() //todo load from config
 	offset := int64(0)
 	primaryKeyNames, err := self.GetPrimaryKeyName(ctx, f)
@@ -324,7 +324,7 @@ func (self *TimeCDCByTable) GenerateItem(ctx context.Context, f *TableField, p *
 	if p != nil {
 		begin = p.Timestamp
 	}
-
+	pushed := int64(0)
 	for {
 		query := self.GenerateIncrementalRefreshQueryWithTime(f, begin, limit, offset)
 		fmt.Println(`sending query`)
@@ -338,6 +338,7 @@ func (self *TimeCDCByTable) GenerateItem(ctx context.Context, f *TableField, p *
 		if len(founds) == 0 {
 			return nil
 		}
+
 		for _, found := range founds {
 			topush := new(klib.Message)
 			evt := msiToEventSpec(primaryKeyNames, f, found)
@@ -353,7 +354,12 @@ func (self *TimeCDCByTable) GenerateItem(ctx context.Context, f *TableField, p *
 				if t1, ok := found[f.ColumnName].(time.Time); ok {
 					p.Timestamp = t1
 				}
-				continue
+				pushed++
+				if (pushed)%int64(limit) == 0 {
+					if err := ps(p); err != nil {
+						fmt.Println(`progressSaver`, err.Error())
+					}
+				}
 			}
 		}
 		if len(founds) < limit {
@@ -365,6 +371,8 @@ func (self *TimeCDCByTable) GenerateItem(ctx context.Context, f *TableField, p *
 	return nil
 
 }
+
+type progressSaver func(*progressor.Progress) error
 
 //Transform
 //TODO add table and field filters
@@ -402,6 +410,12 @@ func (self *TimeCDCByTable) Transform(ctx context.Context, eventMsg *klib.Messag
 			fmt.Println(`field is   in filter`, f)
 
 			k := fmt.Sprintf(`%s.%s.%s`, f.SchameName, f.TableName, f.ColumnName)
+			ps := func(_k string) progressSaver {
+				return func(_p *progressor.Progress) error {
+					fmt.Println(`saving progress`, k, _p)
+					return self.p.SaveProgress(_k, _p)
+				}
+			}(k)
 			//TODO add dlock
 			dmux := self.dl.NewMutex(ctx, k)
 			if err := dmux.Lock(); err != nil {
@@ -427,7 +441,7 @@ func (self *TimeCDCByTable) Transform(ctx context.Context, eventMsg *klib.Messag
 				prog = new(progressor.Progress)
 			}
 
-			if err := self.GenerateItem(ctx, f, prog, ret); err != nil {
+			if err := self.GenerateItem(ctx, f, ps, prog, ret); err != nil {
 				fmt.Println(`GenerateItem`, err.Error())
 				return
 			}
