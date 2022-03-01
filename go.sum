@@ -452,10 +452,6 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1
 github.com/ugorji/go v0.0.0-20171122102828-84cb69a8af83/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
-github.com/ws6/calculator v0.0.0-20220226005221-a69fe5ef0f84 h1:M/IOVirZMyWjLUZe4plmxVCQnQAiCBzm2+n25DNa3ZM=
-github.com/ws6/calculator v0.0.0-20220226005221-a69fe5ef0f84/go.mod h1:NN0e3zQaQYHJ4NXxTWpdmlGREPlJRni8T9sIuBZcMGs=
-github.com/ws6/calculator v0.0.0-20220226010413-a95334009e2d h1:HOGdophdQbAxqNwQ8cX57UbsssIsuZRjNjsyS4G5vLI=
-github.com/ws6/calculator v0.0.0-20220226010413-a95334009e2d/go.mod h1:NN0e3zQaQYHJ4NXxTWpdmlGREPlJRni8T9sIuBZcMGs=
 github.com/ws6/calculator v0.0.0-20220226010606-af5d535bb3c8 h1:vR0xsAr9+dJMF+CFyWIobwV/irTGTpXQP5gu8oJmc8w=
 github.com/ws6/calculator v0.0.0-20220226010606-af5d535bb3c8/go.mod h1:NN0e3zQaQYHJ4NXxTWpdmlGREPlJRni8T9sIuBZcMGs=
 github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022 h1:OPWNpquBo7L/87DFo87FQ6loWIFOrc/b3z7k9PVWeGM=

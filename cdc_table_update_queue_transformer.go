@@ -6,13 +6,9 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"strconv"
+
 	"strings"
-	"time"
 
-	"github.com/ws6/dlock"
-
-	"github.com/ws6/calculator/extraction"
 	"github.com/ws6/calculator/extraction/progressor"
 	"github.com/ws6/calculator/transformation"
 	"github.com/ws6/calculator/utils/confighelper"
@@ -30,18 +26,14 @@ func init() {
 	transformation.RegisterType(new(TimeCDCByTable))
 }
 
+//transform from table update events to table fields updates events
 type TimeCDCByTable struct {
-	db     *msi.Msi
-	cfg    *confighelper.SectionConfig
-	p      progressor.Progressor
-	fields []*TableField
-	dl     *dlock.Dlock
+	db  *msi.Msi
+	cfg *confighelper.SectionConfig
 }
 
 //InitProgrssorFromConfigSection
 func (self *TimeCDCByTable) Close() error {
-	self.p.Close()
-	self.dl.Close()
 	return self.db.Close()
 }
 func (self *TimeCDCByTable) Type() string {
@@ -66,24 +58,7 @@ func (self *TimeCDCByTable) NewTransformer(cfg *confighelper.SectionConfig) (tra
 	if err != nil {
 		return nil, err
 	}
-	progressorSectionName := ret.cfg.ConfigMap[`progressor`]
-	ret.p, err = extraction.InitProgrssorFromConfigSection(cfg.Configer, progressorSectionName)
-	if err != nil {
-		return nil, fmt.Errorf(`InitProgrssorFromConfigSection:%s`, err.Error())
-	}
-	//add fields
-	dlockConfigSection, ok := ret.cfg.ConfigMap[`dlock_config_section`]
-	if !ok {
-		return nil, fmt.Errorf(`no dlock_config_section`)
-	}
-	dlockCfg, err := ret.cfg.Configer.GetSection(dlockConfigSection)
-	if err != nil {
-		return nil, fmt.Errorf(`GetSection(%s):%s`, dlockConfigSection, err.Error())
-	}
-	ret.dl, err = dlock.NewDlock(dlockCfg)
-	if err != nil {
-		return nil, fmt.Errorf(`NewDlock:%s`, err.Error())
-	}
+
 	return ret, nil
 }
 
@@ -181,78 +156,6 @@ func tableFieldfromMsi(m map[string]interface{}) (*TableField, error) {
 	return ret, nil
 }
 
-func (self *TimeCDCByTable) GetPrimaryKeyName(ctx context.Context, f *TableField) ([]string, error) {
-	query := fmt.Sprintf(
-		`SELECT 
-     KU.table_name as table_name
-    ,column_name as primary_key_column
-	 
-FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS TC 
-
-INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS KU
-    ON TC.CONSTRAINT_TYPE = 'PRIMARY KEY' 
-    AND TC.CONSTRAINT_NAME = KU.CONSTRAINT_NAME 
-     AND KU.table_name='%s'
-	 AND KU.TABLE_SCHEMA = '%s'
-	order by KU.table_name,  ku.ORDINAL_POSITION 
-	`,
-		f.TableName,
-		f.SchameName,
-	)
-	founds, err := self.db.MapContext(ctx, self.db.Db, query, nil)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, nil
-	}
-	ret := []string{}
-	for _, found := range founds {
-		topush, err := msi.ToString(found[`primary_key_column`])
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, topush)
-		//unable to handle multiple primary_key_col if exists
-	}
-	return ret, nil
-}
-
-func (self *TimeCDCByTable) GenerateIncrementalRefreshQueryWithTime(f *TableField, p time.Time, limit int, offset int64) string {
-	timefilter := ""
-	timelayout := "2006-01-02 15:04:05"
-	if f.SecondScale > 0 {
-		zeros := fmt.Sprintf("%0*d", f.SecondScale, 0)
-		timelayout = fmt.Sprintf("%s.%s", timelayout, zeros)
-	}
-
-	if !p.IsZero() {
-		ts := p.Format(timelayout)
-		timefilter = fmt.Sprintf(`AND [%s]>'%s'`, f.ColumnName, ts)
-	}
-	offsetlimitStr := fmt.Sprintf(` 
-		OFFSET %d ROWS
-        FETCH NEXT %d ROWS ONLY`, offset, limit)
-	query := `
-	SELECT
-	*
-	FROM [%s].[%s]
-	WHERE 1=1
-	-- AND [%s] is not null
-	%s
-	ORDER BY [%s] ASC
-	%s
-	`
-	query = fmt.Sprintf(query,
-		f.SchameName,
-		f.TableName,
-		f.ColumnName,
-		timefilter,
-		f.ColumnName,
-		offsetlimitStr,
-	)
-
-	return query
-}
-
 func msiToEventSpec(primaryKeyNames []string, f *TableField, m map[string]interface{}) *specs.EventMessage {
 	ret := new(specs.EventMessage)
 	ret.ResourceType = fmt.Sprintf(`[%s].[%s]`, f.SchameName, f.TableName)
@@ -276,15 +179,6 @@ func msiToEventSpec(primaryKeyNames []string, f *TableField, m map[string]interf
 		NewValue: ret.DateCreated,
 	}
 	return ret
-}
-
-func (self *TimeCDCByTable) GetLimit() int {
-	if s, ok := self.cfg.ConfigMap[`fetch_limit`]; ok {
-		if n, err := strconv.Atoi(s); err == nil && n > 0 {
-			return n
-		}
-	}
-	return DEFAULT_LIMIT
 }
 
 func (self *TimeCDCByTable) TableFields() []string {
@@ -312,72 +206,12 @@ func (self *TimeCDCByTable) IsAllowedTableFields(f *TableField) bool {
 
 }
 
-func (self *TimeCDCByTable) GenerateItem(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan *klib.Message) error {
-	limit := self.GetLimit() //todo load from config
-	offset := int64(0)
-	primaryKeyNames, err := self.GetPrimaryKeyName(ctx, f)
-	if err != nil {
-		fmt.Println(`GetPrimaryKeyName`, err.Error())
-		return err
-	}
-	begin := time.Time{}
-	if p != nil {
-		begin = p.Timestamp
-	}
-	pushed := int64(0)
-	for {
-		query := self.GenerateIncrementalRefreshQueryWithTime(f, begin, limit, offset)
-		fmt.Println(`sending query`)
-		fmt.Println(query)
-		offset += int64(limit)
-		founds, err := self.db.MapContext(ctx, self.db.Db, query, nil)
-		if err != nil {
-			fmt.Println(query)
-			return err
-		}
-		if len(founds) == 0 {
-			return nil
-		}
-
-		for _, found := range founds {
-			topush := new(klib.Message)
-			evt := msiToEventSpec(primaryKeyNames, f, found)
-			topush.Value, err = json.Marshal(evt)
-			if err != nil {
-				return err
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case recv <- topush:
-				//update progress
-				if t1, ok := found[f.ColumnName].(time.Time); ok {
-					p.Timestamp = t1
-				}
-				pushed++
-				if (pushed)%int64(limit) == 0 {
-					if err := ps(p); err != nil {
-						fmt.Println(`progressSaver`, err.Error())
-					}
-				}
-			}
-		}
-		if len(founds) < limit {
-			return nil
-		}
-
-	}
-
-	return nil
-
-}
-
 type progressSaver func(*progressor.Progress) error
 
 //Transform
-//TODO add table and field filters
+
 func (self *TimeCDCByTable) Transform(ctx context.Context, eventMsg *klib.Message) (chan *klib.Message, error) {
-	ret := make(chan *klib.Message, 4*self.GetLimit())
+	ret := make(chan *klib.Message)
 	tableEvent := new(TableUpdateEvent)
 	if err := json.Unmarshal(eventMsg.Value, tableEvent); err != nil {
 		return nil, err
@@ -387,74 +221,24 @@ func (self *TimeCDCByTable) Transform(ctx context.Context, eventMsg *klib.Messag
 	if err != nil {
 		return nil, err
 	}
-	//??use waitgroup?
-	muxMap := make(map[string]bool)
 	go func() {
 		defer close(ret)
-		//build query with progressor
-
 		for _, field := range fields {
-			//get progress make query
-
-			//send items into chan
 			f, err := tableFieldfromMsi(field)
 			if err != nil {
-				fmt.Println(`tableFieldfromMsi`, err.Error())
 				return
-
 			}
 			if !self.IsAllowedTableFields(f) {
-
 				continue
 			}
-			fmt.Println(`field is   in filter`, f)
-
-			k := fmt.Sprintf(`%s.%s.%s`, f.SchameName, f.TableName, f.ColumnName)
-			ps := func(_k string) progressSaver {
-				return func(_p *progressor.Progress) error {
-					fmt.Println(`saving progress`, k, _p)
-					return self.p.SaveProgress(_k, _p)
-				}
-			}(k)
-			//TODO add dlock
-			dmux := self.dl.NewMutex(ctx, k)
-			if err := dmux.Lock(); err != nil {
-				fmt.Println(`dmux.Lock()`, err.Error())
-				return
-			}
-			muxMap[k] = true
-			defer func() {
-				if locked, ok := muxMap[k]; ok && locked {
-					dmux.Unlock()
-				}
-
-			}()
-
-			prog, err := self.p.GetProgress(k)
+			topush := new(klib.Message)
+			topush.Value, err = json.Marshal(f)
 			if err != nil {
-				if err != progressor.NOT_FOUND_PROGRESS {
-					fmt.Println(`GetProgress`, err.Error())
-					return
-				}
-			}
-			if prog == nil {
-				prog = new(progressor.Progress)
-			}
-
-			if err := self.GenerateItem(ctx, f, ps, prog, ret); err != nil {
-				fmt.Println(`GenerateItem`, err.Error())
+				fmt.Println(err.Error())
 				return
 			}
-
-			if err := self.p.SaveProgress(k, prog); err != nil {
-				fmt.Println(`SaveProgress`, err.Error())
-				return
-			}
-			dmux.Unlock()
-			muxMap[k] = false
-			//update it
+			ret <- topush
 		}
-
 	}()
 
 	return ret, nil

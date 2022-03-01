@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/denisenkom/go-mssqldb v0.12.0
 	github.com/ws6/calculator v0.0.0-20220226010606-af5d535bb3c8
+	github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022
 	github.com/ws6/klib v0.0.0-20220216230127-30b001ed47c7
 	github.com/ws6/msi v1.2.2-0.20220223233655-f72b2e1df9e5
 )
@@ -37,7 +38,6 @@ require (
 	github.com/shiena/ansicolor v0.0.0-20200904210342-c7312218db18 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect
-	github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/net v0.0.0-20210825183410-e898025ed96a // indirect
 	golang.org/x/sys v0.0.0-20210831042530-f4d43177bf5e // indirect
