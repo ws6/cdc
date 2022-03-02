@@ -24,10 +24,10 @@ import (
 )
 
 func init() {
-	transformation.RegisterType(new(TimeCDCByTableField))
+	transformation.RegisterType(new(FieldIncrementatlRefresh))
 }
 
-type TimeCDCByTableField struct {
+type FieldIncrementatlRefresh struct {
 	db  *msi.Msi
 	cfg *confighelper.SectionConfig
 	p   progressor.Progressor
@@ -35,10 +35,10 @@ type TimeCDCByTableField struct {
 	dl *dlock.Dlock
 }
 
-func (self *TimeCDCByTableField) Type() string {
-	return `TimeCDCByTableField`
+func (self *FieldIncrementatlRefresh) Type() string {
+	return `FieldIncrementatlRefresh`
 }
-func (self *TimeCDCByTableField) Name() string {
+func (self *FieldIncrementatlRefresh) Name() string {
 	site, err := self.cfg.Configer.String(
 		fmt.Sprintf(`%s::site`, self.cfg.SectionName),
 	)
@@ -47,14 +47,14 @@ func (self *TimeCDCByTableField) Name() string {
 	}
 	return self.Type()
 }
-func (self *TimeCDCByTableField) Close() error {
+func (self *FieldIncrementatlRefresh) Close() error {
 	self.p.Close()
 	self.dl.Close()
 	return self.db.Close()
 }
 
-func (self *TimeCDCByTableField) NewTransformer(cfg *confighelper.SectionConfig) (transformation.Transformer, error) {
-	ret := new(TimeCDCByTableField)
+func (self *FieldIncrementatlRefresh) NewTransformer(cfg *confighelper.SectionConfig) (transformation.Transformer, error) {
+	ret := new(FieldIncrementatlRefresh)
 	ret.cfg = cfg
 	//TODO open database
 	var err error
@@ -83,7 +83,7 @@ func (self *TimeCDCByTableField) NewTransformer(cfg *confighelper.SectionConfig)
 	return ret, nil
 }
 
-func (self *TimeCDCByTableField) GetLimit() int {
+func (self *FieldIncrementatlRefresh) GetLimit() int {
 	if s, ok := self.cfg.ConfigMap[`fetch_limit`]; ok {
 		if n, err := strconv.Atoi(s); err == nil && n > 0 {
 			return n
@@ -91,7 +91,7 @@ func (self *TimeCDCByTableField) GetLimit() int {
 	}
 	return DEFAULT_LIMIT
 }
-func (self *TimeCDCByTableField) GetPrimaryKeyName(ctx context.Context, f *TableField) ([]string, error) {
+func (self *FieldIncrementatlRefresh) GetPrimaryKeyName(ctx context.Context, f *TableField) ([]string, error) {
 	query := fmt.Sprintf(
 		`SELECT 
      KU.table_name as table_name
@@ -126,7 +126,7 @@ INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS KU
 	return ret, nil
 }
 
-func (self *TimeCDCByTableField) GenerateIncrementalRefreshQueryWithTime(f *TableField, p time.Time, limit int, offset int64) string {
+func (self *FieldIncrementatlRefresh) GenerateIncrementalRefreshQueryWithTime(f *TableField, p time.Time, limit int, offset int64) string {
 	timefilter := ""
 	timelayout := "2006-01-02 15:04:05"
 	if f.SecondScale > 0 {
@@ -163,7 +163,7 @@ func (self *TimeCDCByTableField) GenerateIncrementalRefreshQueryWithTime(f *Tabl
 	return query
 }
 
-func (self *TimeCDCByTableField) GenerateItem(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan *klib.Message) error {
+func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan<- *klib.Message) error {
 	limit := self.GetLimit() //todo load from config
 	offset := int64(0)
 	primaryKeyNames, err := self.GetPrimaryKeyName(ctx, f)
@@ -223,59 +223,54 @@ func (self *TimeCDCByTableField) GenerateItem(ctx context.Context, f *TableField
 
 }
 
-func (self *TimeCDCByTableField) Transform(ctx context.Context, eventMsg *klib.Message) (chan *klib.Message, error) {
-	ret := make(chan *klib.Message, 4*self.GetLimit())
+func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *klib.Message, recv chan<- *klib.Message) error {
+
 	tableField := new(TableField)
 	if err := json.Unmarshal(eventMsg.Value, tableField); err != nil {
-		return nil, err
+		return err
 	}
 
-	go func() {
-		defer close(ret)
-		//build query with progressor
-		f := tableField
-		fmt.Println(`field is   in filter`, f)
+	//build query with progressor
+	f := tableField
+	fmt.Println(`field is   in filter`, f)
 
-		k := fmt.Sprintf(`%s.%s.%s`, f.SchameName, f.TableName, f.ColumnName)
-		ps := func(_k string) progressSaver {
-			return func(_p *progressor.Progress) error {
-				fmt.Println(`saving progress`, k, _p)
-				return self.p.SaveProgress(_k, _p)
-			}
-		}(k)
-		//TODO add dlock
-		dmux := self.dl.NewMutex(ctx, k)
-		if err := dmux.Lock(); err != nil {
-			fmt.Println(`dmux.Lock()`, err.Error())
-			return
+	k := fmt.Sprintf(`%s.%s.%s`, f.SchameName, f.TableName, f.ColumnName)
+	ps := func(_k string) progressSaver {
+		return func(_p *progressor.Progress) error {
+			fmt.Println(`saving progress`, k, _p)
+			return self.p.SaveProgress(_k, _p)
 		}
+	}(k)
+	//TODO add dlock
+	dmux := self.dl.NewMutex(ctx, k)
+	if err := dmux.Lock(); err != nil {
+		return fmt.Errorf(`dmux.Lock():%s`, err.Error())
+	}
 
-		defer dmux.Unlock()
+	defer dmux.Unlock()
 
-		prog, err := self.p.GetProgress(k)
-		if err != nil {
-			if err != progressor.NOT_FOUND_PROGRESS {
-				fmt.Println(`GetProgress`, err.Error())
-				return
-			}
+	prog, err := self.p.GetProgress(k)
+	if err != nil {
+		if err != progressor.NOT_FOUND_PROGRESS {
+			fmt.Println(`GetProgress`, err.Error())
+			return fmt.Errorf(`GetProgress:%s`, err.Error())
 		}
-		if prog == nil {
-			prog = new(progressor.Progress)
-		}
+	}
+	if prog == nil {
+		prog = new(progressor.Progress)
+	}
 
-		if err := self.GenerateItem(ctx, f, ps, prog, ret); err != nil {
-			fmt.Println(`GenerateItem`, err.Error())
-			return
-		}
+	if err := self.GenerateItem(ctx, f, ps, prog, recv); err != nil {
+		fmt.Println(`GenerateItem`, err.Error())
+		return fmt.Errorf(`GenerateItem:%s`, err.Error())
+	}
 
-		if err := self.p.SaveProgress(k, prog); err != nil {
-			fmt.Println(`SaveProgress`, err.Error())
-			return
-		}
+	if err := self.p.SaveProgress(k, prog); err != nil {
+		fmt.Println(`SaveProgress`, err.Error())
+		return fmt.Errorf(`SaveProgress:%s`, err.Error())
+	}
 
-		//update it
+	//update it
 
-	}()
-
-	return ret, nil
+	return nil
 }

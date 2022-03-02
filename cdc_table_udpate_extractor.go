@@ -19,24 +19,24 @@ import (
 
 func init() {
 
-	extraction.RegisterType(new(TimeCDC))
+	extraction.RegisterType(new(TableUpdated))
 }
 
-type TimeCDC struct {
+type TableUpdated struct {
 	db  *msi.Msi
 	cfg *confighelper.SectionConfig
 }
 
-func (self *TimeCDC) Close() error {
+func (self *TableUpdated) Close() error {
 	if self.db != nil {
 		return self.db.Db.Close()
 	}
 	return nil
 }
-func (self *TimeCDC) Type() string {
-	return `TimeCDC`
+func (self *TableUpdated) Type() string {
+	return `TableUpdated`
 }
-func (self *TimeCDC) Name() string {
+func (self *TableUpdated) Name() string {
 	//TODO from config
 	site, err := self.cfg.Configer.String(
 		fmt.Sprintf(`%s::site`, self.cfg.SectionName),
@@ -47,10 +47,10 @@ func (self *TimeCDC) Name() string {
 	return self.Type()
 
 }
-func (self *TimeCDC) SaveProgressOnFail(error) bool {
+func (self *TableUpdated) SaveProgressOnFail(error) bool {
 	return false
 }
-func (self *TimeCDC) UpdateProgress(item map[string]interface{}, p *progressor.Progress) error {
+func (self *TableUpdated) UpdateProgress(item map[string]interface{}, p *progressor.Progress) error {
 
 	if t0, ok := item[`modify_date`].(time.Time); ok {
 
@@ -69,8 +69,8 @@ func (self *TimeCDC) UpdateProgress(item map[string]interface{}, p *progressor.P
 	return nil
 }
 
-func (self *TimeCDC) NewIncref(cfg *confighelper.SectionConfig) (extraction.Incref, error) {
-	ret := new(TimeCDC)
+func (self *TableUpdated) NewIncref(cfg *confighelper.SectionConfig) (extraction.Incref, error) {
+	ret := new(TableUpdated)
 	ret.cfg = cfg
 	//TODO open database
 	var err error
@@ -81,7 +81,7 @@ func (self *TimeCDC) NewIncref(cfg *confighelper.SectionConfig) (extraction.Incr
 	return ret, nil
 }
 
-func (self *TimeCDC) getTablesInclude() []string {
+func (self *TableUpdated) getTablesInclude() []string {
 	tablesIncludeStr := self.cfg.ConfigMap[`tables_names_include`]
 	if tablesIncludeStr == "" {
 		return nil
@@ -89,7 +89,7 @@ func (self *TimeCDC) getTablesInclude() []string {
 	sp := strings.Split(tablesIncludeStr, ",")
 	return sp
 }
-func (self *TimeCDC) makeQuery(p *progressor.Progress) string {
+func (self *TableUpdated) makeQuery(p *progressor.Progress) string {
 	timefitler := ""
 	if !p.Timestamp.IsZero() {
 		timefitler = fmt.Sprintf(`AND modify_date>'%s'`, dbhelper.ToSQLDatetimeStringLocalMilliSecond(p.Timestamp))
@@ -113,7 +113,7 @@ order by modify_date asc `,
 		tablesIncludeFilter,
 	)
 }
-func (self *TimeCDC) GetChan(ctx context.Context, p *progressor.Progress) (chan map[string]interface{}, error) {
+func (self *TableUpdated) GetChan(ctx context.Context, p *progressor.Progress) (chan map[string]interface{}, error) {
 	query := self.makeQuery(p)
 
 	ret := make(chan map[string]interface{})
@@ -138,7 +138,7 @@ func (self *TimeCDC) GetChan(ctx context.Context, p *progressor.Progress) (chan 
 	return ret, nil
 }
 
-func (self *TimeCDC) Tables() []string {
+func (self *TableUpdated) Tables() []string {
 	s, ok := self.cfg.ConfigMap[`tables_include`]
 	if !ok {
 		return []string{}
@@ -146,7 +146,7 @@ func (self *TimeCDC) Tables() []string {
 	return strings.Split(s, ",")
 }
 
-func (self *TimeCDC) IsAllowedTable(schema, tableName string) bool {
+func (self *TableUpdated) IsAllowedTable(schema, tableName string) bool {
 	tableFields := self.Tables()
 	if len(tableFields) == 0 {
 		return true //!!!if user didnt do it. it leaves a usage to pullout everything

@@ -23,23 +23,23 @@ const (
 )
 
 func init() {
-	transformation.RegisterType(new(TimeCDCByTable))
+	transformation.RegisterType(new(FieldUpdated))
 }
 
 //transform from table update events to table fields updates events
-type TimeCDCByTable struct {
+type FieldUpdated struct {
 	db  *msi.Msi
 	cfg *confighelper.SectionConfig
 }
 
 //InitProgrssorFromConfigSection
-func (self *TimeCDCByTable) Close() error {
+func (self *FieldUpdated) Close() error {
 	return self.db.Close()
 }
-func (self *TimeCDCByTable) Type() string {
-	return `TimeCDCByTable`
+func (self *FieldUpdated) Type() string {
+	return `FieldUpdated`
 }
-func (self *TimeCDCByTable) Name() string {
+func (self *FieldUpdated) Name() string {
 	site, err := self.cfg.Configer.String(
 		fmt.Sprintf(`%s::site`, self.cfg.SectionName),
 	)
@@ -48,9 +48,9 @@ func (self *TimeCDCByTable) Name() string {
 	}
 	return self.Type()
 }
-func (self *TimeCDCByTable) NewTransformer(cfg *confighelper.SectionConfig) (transformation.Transformer, error) {
+func (self *FieldUpdated) NewTransformer(cfg *confighelper.SectionConfig) (transformation.Transformer, error) {
 
-	ret := new(TimeCDCByTable)
+	ret := new(FieldUpdated)
 	ret.cfg = cfg
 	//TODO open database
 	var err error
@@ -130,7 +130,7 @@ order by t.name,
 	)
 }
 
-func (self *TimeCDCByTable) GetDateTimeField(ctx context.Context, e *TableUpdateEvent) ([]map[string]interface{}, error) {
+func (self *FieldUpdated) GetDateTimeField(ctx context.Context, e *TableUpdateEvent) ([]map[string]interface{}, error) {
 	//TODO add filters
 	query := e.GetDateTimeFieldQuery()
 	return self.db.MapContext(ctx, self.db.Db, query, nil)
@@ -181,7 +181,7 @@ func msiToEventSpec(primaryKeyNames []string, f *TableField, m map[string]interf
 	return ret
 }
 
-func (self *TimeCDCByTable) TableFields() []string {
+func (self *FieldUpdated) TableFields() []string {
 	s, ok := self.cfg.ConfigMap[`table_fields_include`]
 	if !ok {
 		return []string{}
@@ -189,7 +189,7 @@ func (self *TimeCDCByTable) TableFields() []string {
 	return strings.Split(s, ",")
 }
 
-func (self *TimeCDCByTable) IsAllowedTableFields(f *TableField) bool {
+func (self *FieldUpdated) IsAllowedTableFields(f *TableField) bool {
 	tableFields := self.TableFields()
 	if len(tableFields) == 0 {
 		return true //!!!if user didnt do it. it leaves a usage to pullout everything
@@ -210,36 +210,40 @@ type progressSaver func(*progressor.Progress) error
 
 //Transform
 
-func (self *TimeCDCByTable) Transform(ctx context.Context, eventMsg *klib.Message) (chan *klib.Message, error) {
-	ret := make(chan *klib.Message)
+func (self *FieldUpdated) Transform(ctx context.Context, eventMsg *klib.Message, recv chan<- *klib.Message) error {
+
 	tableEvent := new(TableUpdateEvent)
 	if err := json.Unmarshal(eventMsg.Value, tableEvent); err != nil {
-		return nil, err
+		return err
 	}
 	//get datetime fields
 	fields, err := self.GetDateTimeField(ctx, tableEvent)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	go func() {
-		defer close(ret)
-		for _, field := range fields {
-			f, err := tableFieldfromMsi(field)
-			if err != nil {
-				return
-			}
-			if !self.IsAllowedTableFields(f) {
-				continue
-			}
-			topush := new(klib.Message)
-			topush.Value, err = json.Marshal(f)
-			if err != nil {
-				fmt.Println(err.Error())
-				return
-			}
-			ret <- topush
-		}
-	}()
 
-	return ret, nil
+	for _, field := range fields {
+		f, err := tableFieldfromMsi(field)
+		if err != nil {
+			return err
+		}
+		if !self.IsAllowedTableFields(f) {
+			continue
+		}
+		topush := new(klib.Message)
+		topush.Value, err = json.Marshal(f)
+		if err != nil {
+
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case recv <- topush:
+			continue
+		}
+
+	}
+
+	return nil
 }
