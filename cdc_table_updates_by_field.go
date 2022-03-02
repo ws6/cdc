@@ -179,9 +179,10 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 	for {
 		query := self.GenerateIncrementalRefreshQueryWithTime(f, begin, limit, offset)
 		fmt.Println(`sending query`)
-		fmt.Println(query)
+
 		offset += int64(limit)
 		founds, err := self.db.MapContext(ctx, self.db.Db, query, nil)
+		fmt.Println(query)
 		if err != nil {
 			fmt.Println(query)
 			return err
@@ -189,7 +190,7 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 		if len(founds) == 0 {
 			return nil
 		}
-
+		sent := 0
 		for _, found := range founds {
 			topush := new(klib.Message)
 			evt := msiToEventSpec(primaryKeyNames, f, found)
@@ -201,6 +202,7 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 			case <-ctx.Done():
 				return ctx.Err()
 			case recv <- topush:
+				sent++
 				//update progress
 				if t1, ok := found[f.ColumnName].(time.Time); ok {
 					p.Timestamp = t1
@@ -213,6 +215,7 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 				}
 			}
 		}
+		fmt.Println(`sent`, sent)
 		if len(founds) < limit {
 			return nil
 		}
