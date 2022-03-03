@@ -30,7 +30,6 @@ func init() {
 type FieldIncrementatlRefresh struct {
 	db  *msi.Msi
 	cfg *confighelper.SectionConfig
-	p   progressor.Progressor
 
 	dl *dlock.Dlock
 }
@@ -48,7 +47,7 @@ func (self *FieldIncrementatlRefresh) Name() string {
 	return self.Type()
 }
 func (self *FieldIncrementatlRefresh) Close() error {
-	self.p.Close()
+
 	self.dl.Close()
 	return self.db.Close()
 }
@@ -62,11 +61,7 @@ func (self *FieldIncrementatlRefresh) NewTransformer(cfg *confighelper.SectionCo
 	if err != nil {
 		return nil, err
 	}
-	progressorSectionName := ret.cfg.ConfigMap[`progressor`]
-	ret.p, err = extraction.InitProgrssorFromConfigSection(cfg.Configer, progressorSectionName)
-	if err != nil {
-		return nil, fmt.Errorf(`InitProgrssorFromConfigSection:%s`, err.Error())
-	}
+
 	//add fields
 	dlockConfigSection, ok := ret.cfg.ConfigMap[`dlock_config_section`]
 	if !ok {
@@ -164,6 +159,7 @@ func (self *FieldIncrementatlRefresh) GenerateIncrementalRefreshQueryWithTime(f 
 }
 
 func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan<- *klib.Message) error {
+
 	limit := self.GetLimit() //todo load from config
 	offset := int64(0)
 	primaryKeyNames, err := self.GetPrimaryKeyName(ctx, f)
@@ -227,6 +223,13 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 }
 
 func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *klib.Message, recv chan<- *klib.Message) error {
+	//!!!each transformer could be running long so keep open then close the progressor here
+	progressorSectionName := self.cfg.ConfigMap[`progressor`]
+	progr, err := extraction.InitProgrssorFromConfigSection(self.cfg.Configer, progressorSectionName)
+	if err != nil {
+		return fmt.Errorf(`InitProgrssorFromConfigSection:%s`, err.Error())
+	}
+	defer progr.Close()
 
 	tableField := new(TableField)
 	if err := json.Unmarshal(eventMsg.Value, tableField); err != nil {
@@ -241,7 +244,7 @@ func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *k
 	ps := func(_k string) progressSaver {
 		return func(_p *progressor.Progress) error {
 			fmt.Println(`saving progress`, k, _p)
-			return self.p.SaveProgress(_k, _p)
+			return progr.SaveProgress(_k, _p)
 		}
 	}(k)
 	//TODO add dlock
@@ -252,7 +255,7 @@ func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *k
 
 	defer dmux.Unlock()
 
-	prog, err := self.p.GetProgress(k)
+	prog, err := progr.GetProgress(k)
 	if err != nil {
 		if err != progressor.NOT_FOUND_PROGRESS {
 			fmt.Println(`GetProgress`, err.Error())
@@ -268,7 +271,7 @@ func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *k
 		return fmt.Errorf(`GenerateItem:%s`, err.Error())
 	}
 
-	if err := self.p.SaveProgress(k, prog); err != nil {
+	if err := progr.SaveProgress(k, prog); err != nil {
 		fmt.Println(`SaveProgress`, err.Error())
 		return fmt.Errorf(`SaveProgress:%s`, err.Error())
 	}

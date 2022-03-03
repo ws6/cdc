@@ -29,7 +29,9 @@ type TableUpdated struct {
 
 func (self *TableUpdated) Close() error {
 	if self.db != nil {
-		return self.db.Db.Close()
+		fmt.Println(`database closed`)
+		return self.db.Close()
+
 	}
 	return nil
 }
