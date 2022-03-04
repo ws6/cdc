@@ -18,7 +18,6 @@ import (
 )
 
 func init() {
-
 	extraction.RegisterType(new(TableUpdated))
 }
 
@@ -28,10 +27,11 @@ type TableUpdated struct {
 }
 
 func (self *TableUpdated) Close() error {
-	if self.db != nil {
-		fmt.Println(`TableUpdated database closed`)
-		return self.db.Close()
 
+	return nil //do not close db since shared
+
+	if self.db != nil {
+		return self.db.Close()
 	}
 	self.db = nil //force GC
 	return nil
@@ -72,17 +72,18 @@ func (self *TableUpdated) UpdateProgress(item map[string]interface{}, p *progres
 	return nil
 }
 
-func (self *TableUpdated) NewIncref(cfg *confighelper.SectionConfig) error {
-
-	self.cfg = cfg
+func (class *TableUpdated) NewIncref(cfg *confighelper.SectionConfig) (extraction.Incref, error) {
+	ret := new(TableUpdated)
+	ret.cfg = cfg
 	//TODO open database
 	var err error
-	fmt.Println(`GetMSDB NewIncref TableUpdated`)
-	self.db, err = dbhelper.GetMSDB(cfg.ConfigMap)
+	key := cfg.SectionName
+
+	ret.db, err = createIfNotExistDb(key, cfg.ConfigMap)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return ret, nil
 }
 
 func (self *TableUpdated) getTablesInclude() []string {

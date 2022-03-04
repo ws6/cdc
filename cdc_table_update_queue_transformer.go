@@ -12,7 +12,7 @@ import (
 	"github.com/ws6/calculator/extraction/progressor"
 	"github.com/ws6/calculator/transformation"
 	"github.com/ws6/calculator/utils/confighelper"
-	"github.com/ws6/calculator/utils/dbhelper"
+
 	"github.com/ws6/cdc/specs"
 	"github.com/ws6/klib"
 	"github.com/ws6/msi"
@@ -34,7 +34,7 @@ type FieldUpdated struct {
 
 //InitProgrssorFromConfigSection
 func (self *FieldUpdated) Close() error {
-	return self.db.Close()
+	return nil
 }
 func (self *FieldUpdated) Type() string {
 	return `FieldUpdated`
@@ -54,7 +54,11 @@ func (self *FieldUpdated) NewTransformer(cfg *confighelper.SectionConfig) (trans
 	ret.cfg = cfg
 	//TODO open database
 	var err error
-	ret.db, err = dbhelper.GetMSDB(cfg.ConfigMap)
+
+	key := cfg.SectionName
+
+	ret.db, err = createIfNotExistDb(key, cfg.ConfigMap)
+
 	if err != nil {
 		return nil, err
 	}

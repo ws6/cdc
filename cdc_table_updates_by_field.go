@@ -18,8 +18,6 @@ import (
 	"github.com/ws6/calculator/extraction"
 	"github.com/ws6/calculator/extraction/progressor"
 
-	"github.com/ws6/calculator/utils/dbhelper"
-
 	"github.com/ws6/msi"
 )
 
@@ -49,7 +47,7 @@ func (self *FieldIncrementatlRefresh) Name() string {
 func (self *FieldIncrementatlRefresh) Close() error {
 
 	self.dl.Close()
-	return self.db.Close()
+	return nil
 }
 
 func (self *FieldIncrementatlRefresh) NewTransformer(cfg *confighelper.SectionConfig) (transformation.Transformer, error) {
@@ -57,7 +55,9 @@ func (self *FieldIncrementatlRefresh) NewTransformer(cfg *confighelper.SectionCo
 	ret.cfg = cfg
 	//TODO open database
 	var err error
-	ret.db, err = dbhelper.GetMSDB(cfg.ConfigMap)
+	key := cfg.SectionName
+	ret.db, err = createIfNotExistDb(key, cfg.ConfigMap)
+
 	if err != nil {
 		return nil, err
 	}
@@ -224,6 +224,8 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 
 func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *klib.Message, recv chan<- *klib.Message) error {
 	//!!!each transformer could be running long so keep open then close the progressor here
+
+	//TODO move this to NewIncref
 	progressorSectionName := self.cfg.ConfigMap[`progressor`]
 	progr, err := extraction.InitProgrssorFromConfigSection(self.cfg.Configer, progressorSectionName)
 	if err != nil {
