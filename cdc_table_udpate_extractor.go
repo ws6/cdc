@@ -29,7 +29,7 @@ type TableUpdated struct {
 
 func (self *TableUpdated) Close() error {
 	if self.db != nil {
-		fmt.Println(`database closed`)
+		fmt.Println(`TableUpdated database closed`)
 		return self.db.Close()
 
 	}
@@ -76,6 +76,7 @@ func (self *TableUpdated) NewIncref(cfg *confighelper.SectionConfig) (extraction
 	ret.cfg = cfg
 	//TODO open database
 	var err error
+	fmt.Println(`GetMSDB NewIncref TableUpdated`)
 	ret.db, err = dbhelper.GetMSDB(cfg.ConfigMap)
 	if err != nil {
 		return nil, err
