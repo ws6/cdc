@@ -456,6 +456,8 @@ github.com/ws6/calculator v0.0.0-20220304001309-80926713a35a h1:YS5aQxFOSwwWLUI/
 github.com/ws6/calculator v0.0.0-20220304001309-80926713a35a/go.mod h1:t585ImXGBwOOyDdUm+cPJrV3LD2dE409Z4ZMLLVnAv0=
 github.com/ws6/calculator v0.0.0-20220304003030-f5a6909e742f h1:ONRvElM3SifE8M4Z0RxW8Gt91uk+rRtxg1uXwIMbX8g=
 github.com/ws6/calculator v0.0.0-20220304003030-f5a6909e742f/go.mod h1:t585ImXGBwOOyDdUm+cPJrV3LD2dE409Z4ZMLLVnAv0=
+github.com/ws6/calculator v0.0.0-20220304171433-421a87bced8b h1:IESTzfAE1OK/poS4WNRjFUPv4Zn/Jm0janZf/VY9uNk=
+github.com/ws6/calculator v0.0.0-20220304171433-421a87bced8b/go.mod h1:t585ImXGBwOOyDdUm+cPJrV3LD2dE409Z4ZMLLVnAv0=
 github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022 h1:OPWNpquBo7L/87DFo87FQ6loWIFOrc/b3z7k9PVWeGM=
 github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022/go.mod h1:Zy+CxG5w0QdNwI3opggkmlwZ485WLMDN1Kym85tryfY=
 github.com/ws6/klib v0.0.0-20220304001217-91e9c04c2e28 h1:aESnm7zPYwZWlLZLDJgTcd+V1qVjBd2J/RSzMQMhtEo=

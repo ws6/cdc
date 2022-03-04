@@ -72,17 +72,17 @@ func (self *TableUpdated) UpdateProgress(item map[string]interface{}, p *progres
 	return nil
 }
 
-func (self *TableUpdated) NewIncref(cfg *confighelper.SectionConfig) (extraction.Incref, error) {
-	ret := new(TableUpdated)
-	ret.cfg = cfg
+func (self *TableUpdated) NewIncref(cfg *confighelper.SectionConfig) error {
+
+	self.cfg = cfg
 	//TODO open database
 	var err error
 	fmt.Println(`GetMSDB NewIncref TableUpdated`)
-	ret.db, err = dbhelper.GetMSDB(cfg.ConfigMap)
+	self.db, err = dbhelper.GetMSDB(cfg.ConfigMap)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return ret, nil
+	return nil
 }
 
 func (self *TableUpdated) getTablesInclude() []string {
