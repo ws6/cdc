@@ -33,6 +33,7 @@ func (self *TableUpdated) Close() error {
 		return self.db.Close()
 
 	}
+	self.db = nil //force GC
 	return nil
 }
 func (self *TableUpdated) Type() string {
