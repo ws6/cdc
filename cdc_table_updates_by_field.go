@@ -77,12 +77,12 @@ func (self *FieldIncrementatlRefresh) NewTransformer(cfg *confighelper.SectionCo
 		return nil, fmt.Errorf(`NewDlock:%s`, err.Error())
 	}
 
-	progressorSectionName := self.cfg.ConfigMap[`progressor`]
-	progr, err := extraction.InitProgrssorFromConfigSection(self.cfg.Configer, progressorSectionName)
+	progressorSectionName := ret.cfg.ConfigMap[`progressor`]
+	progr, err := extraction.InitProgrssorFromConfigSection(ret.cfg.Configer, progressorSectionName)
 	if err != nil {
 		return nil, fmt.Errorf(`InitProgrssorFromConfigSection:%s`, err.Error())
 	}
-	self.progr = progr
+	ret.progr = progr
 	return ret, nil
 }
 
