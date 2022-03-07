@@ -26,10 +26,10 @@ func init() {
 }
 
 type FieldIncrementatlRefresh struct {
-	db  *msi.Msi
-	cfg *confighelper.SectionConfig
-
-	dl *dlock.Dlock
+	db    *msi.Msi
+	cfg   *confighelper.SectionConfig
+	progr progressor.Progressor
+	dl    *dlock.Dlock
 }
 
 func (self *FieldIncrementatlRefresh) Type() string {
@@ -47,6 +47,7 @@ func (self *FieldIncrementatlRefresh) Name() string {
 func (self *FieldIncrementatlRefresh) Close() error {
 
 	self.dl.Close()
+	self.progr.Close()
 	return nil
 }
 
@@ -75,6 +76,13 @@ func (self *FieldIncrementatlRefresh) NewTransformer(cfg *confighelper.SectionCo
 	if err != nil {
 		return nil, fmt.Errorf(`NewDlock:%s`, err.Error())
 	}
+
+	progressorSectionName := self.cfg.ConfigMap[`progressor`]
+	progr, err := extraction.InitProgrssorFromConfigSection(self.cfg.Configer, progressorSectionName)
+	if err != nil {
+		return nil, fmt.Errorf(`InitProgrssorFromConfigSection:%s`, err.Error())
+	}
+	self.progr = progr
 	return ret, nil
 }
 
@@ -224,14 +232,8 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 
 func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *klib.Message, recv chan<- *klib.Message) error {
 	//!!!each transformer could be running long so keep open then close the progressor here
-
+	progr := self.progr
 	//TODO move this to NewIncref
-	progressorSectionName := self.cfg.ConfigMap[`progressor`]
-	progr, err := extraction.InitProgrssorFromConfigSection(self.cfg.Configer, progressorSectionName)
-	if err != nil {
-		return fmt.Errorf(`InitProgrssorFromConfigSection:%s`, err.Error())
-	}
-	defer progr.Close()
 
 	tableField := new(TableField)
 	if err := json.Unmarshal(eventMsg.Value, tableField); err != nil {

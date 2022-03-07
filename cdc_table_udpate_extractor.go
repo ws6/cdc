@@ -28,12 +28,11 @@ type TableUpdated struct {
 
 func (self *TableUpdated) Close() error {
 
-	return nil //do not close db since shared
-
 	if self.db != nil {
 		return self.db.Close()
 	}
 	self.db = nil //force GC
+	fmt.Println(`TableUpdated Closed`)
 	return nil
 }
 func (self *TableUpdated) Type() string {
@@ -83,6 +82,7 @@ func (class *TableUpdated) NewIncref(cfg *confighelper.SectionConfig) (extractio
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(`TableUpdated created`)
 	return ret, nil
 }
 

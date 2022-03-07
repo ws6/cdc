@@ -452,12 +452,12 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1
 github.com/ugorji/go v0.0.0-20171122102828-84cb69a8af83/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
-github.com/ws6/calculator v0.0.0-20220304202719-55db9fd40c5b h1:MPsZFYdrqxnI84cCjjElXMI/7E08s4ex/z1INIFySrE=
-github.com/ws6/calculator v0.0.0-20220304202719-55db9fd40c5b/go.mod h1:9aHxZxx7LVKsJOdR8WS/JcL0tAJOSjhLIv/ifFAcCxQ=
+github.com/ws6/calculator v0.0.0-20220307002600-ed6cbf4c6a06 h1:iYJ//SmjRwg0b/itvy2w//Z8+P1hG8q9npbw+PtPdug=
+github.com/ws6/calculator v0.0.0-20220307002600-ed6cbf4c6a06/go.mod h1:u+UZNmLIxQ8QDoZuD/kGmbrLa8g9yATVJPMJZp8ioz0=
 github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022 h1:OPWNpquBo7L/87DFo87FQ6loWIFOrc/b3z7k9PVWeGM=
 github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022/go.mod h1:Zy+CxG5w0QdNwI3opggkmlwZ485WLMDN1Kym85tryfY=
-github.com/ws6/klib v0.0.0-20220304001217-91e9c04c2e28 h1:aESnm7zPYwZWlLZLDJgTcd+V1qVjBd2J/RSzMQMhtEo=
-github.com/ws6/klib v0.0.0-20220304001217-91e9c04c2e28/go.mod h1:12l8dLFnxB2kpK3xrWoPLCVoBZyzamzLcVuIvdXCDnQ=
+github.com/ws6/klib v0.0.0-20220307002325-8f858d18029b h1:6xHBR2HxlZIY3FbupLdjbEPHbRyF9AXNrR4M3SlgSoU=
+github.com/ws6/klib v0.0.0-20220307002325-8f858d18029b/go.mod h1:12l8dLFnxB2kpK3xrWoPLCVoBZyzamzLcVuIvdXCDnQ=
 github.com/ws6/msi v1.2.2-0.20220304190908-61c003568428 h1:8DyuOANTbJZszJVyFSomSxxMeKGTYgvnYQSw3S12aGU=
 github.com/ws6/msi v1.2.2-0.20220304190908-61c003568428/go.mod h1:jESM2KDBQho7wl3f2nL05iakT2uWBhdOEaJr2IBgkPI=
 github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c h1:u40Z8hqBAAQyv+vATcGgV0YCnDjqSL7/q/JyPhhJSPk=
