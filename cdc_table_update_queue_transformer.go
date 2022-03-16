@@ -3,7 +3,7 @@ package cdc
 //cdc_table_update_transformer.go take the event mess from TimeCDC to interact with each individual tab;e updates
 import (
 	"context"
-	"crypto/md5"
+
 	"encoding/json"
 	"fmt"
 
@@ -13,7 +13,6 @@ import (
 	"github.com/ws6/calculator/transformation"
 	"github.com/ws6/calculator/utils/confighelper"
 
-	"github.com/ws6/cdc/specs"
 	"github.com/ws6/klib"
 	"github.com/ws6/msi"
 )
@@ -158,31 +157,6 @@ func tableFieldfromMsi(m map[string]interface{}) (*TableField, error) {
 		return nil, err
 	}
 	return ret, nil
-}
-
-func msiToEventSpec(primaryKeyNames []string, f *TableField, m map[string]interface{}) *specs.EventMessage {
-	ret := new(specs.EventMessage)
-	ret.ResourceType = fmt.Sprintf(`[%s].[%s]`, f.SchameName, f.TableName)
-	ret.EventType = `Update`
-	resourceId := []string{}
-	for _, pk := range primaryKeyNames {
-		resourceId = append(resourceId, fmt.Sprintf("%v", m[pk]))
-	}
-	ret.ResourceId = strings.Join(resourceId, "-")
-	ret.ResourceKey = strings.Join(primaryKeyNames, "-")
-
-	ret.MetaData = m
-	event := fmt.Sprintf(`%s-%s-%v`, ret.ResourceType, ret.ResourceId, m[f.ColumnName])
-	ret.EventId = fmt.Sprintf("%x", md5.Sum([]byte(event)))
-	ret.DateCreated = fmt.Sprintf("%v", m[f.ColumnName]) // or time.Now if configured
-	if m[f.ColumnName] == nil {
-		ret.DateCreated = ""
-	}
-	ret.FieldChanges = make(map[string]*specs.Change)
-	ret.FieldChanges[f.ColumnName] = &specs.Change{
-		NewValue: ret.DateCreated,
-	}
-	return ret
 }
 
 func (self *FieldUpdated) TableFields() []string {

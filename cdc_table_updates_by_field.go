@@ -1,14 +1,16 @@
 package cdc
 
 import (
+	"context"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/ws6/cdc/specs"
 	"github.com/ws6/klib"
-
-	"context"
 
 	"github.com/ws6/calculator/transformation"
 	"github.com/ws6/calculator/utils/confighelper"
@@ -26,10 +28,11 @@ func init() {
 }
 
 type FieldIncrementatlRefresh struct {
-	db    *msi.Msi
-	cfg   *confighelper.SectionConfig
-	progr progressor.Progressor
-	dl    *dlock.Dlock
+	db                 *msi.Msi
+	cfg                *confighelper.SectionConfig
+	progr              progressor.Progressor
+	dl                 *dlock.Dlock
+	addMetaFieldToSpec bool
 }
 
 func (self *FieldIncrementatlRefresh) Type() string {
@@ -62,7 +65,10 @@ func (self *FieldIncrementatlRefresh) NewTransformer(cfg *confighelper.SectionCo
 	if err != nil {
 		return nil, err
 	}
-
+	ret.addMetaFieldToSpec = true //default off
+	if removeMetaFieldStr := ret.cfg.ConfigMap[`remove_meta_field`]; removeMetaFieldStr == `true` {
+		ret.addMetaFieldToSpec = false
+	}
 	//add fields
 	dlockConfigSection, ok := ret.cfg.ConfigMap[`dlock_config_section`]
 	if !ok {
@@ -166,6 +172,33 @@ func (self *FieldIncrementatlRefresh) GenerateIncrementalRefreshQueryWithTime(f 
 	return query
 }
 
+func (self *FieldIncrementatlRefresh) msiToEventSpec(primaryKeyNames []string, f *TableField, m map[string]interface{}) *specs.EventMessage {
+	ret := new(specs.EventMessage)
+	ret.ResourceType = fmt.Sprintf(`[%s].[%s]`, f.SchameName, f.TableName)
+	ret.EventType = `Update`
+	resourceId := []string{}
+	for _, pk := range primaryKeyNames {
+		resourceId = append(resourceId, fmt.Sprintf("%v", m[pk]))
+	}
+	ret.ResourceId = strings.Join(resourceId, "-")
+	ret.ResourceKey = strings.Join(primaryKeyNames, "-")
+	if self.addMetaFieldToSpec {
+		ret.MetaData = m
+	}
+
+	event := fmt.Sprintf(`%s-%s-%v`, ret.ResourceType, ret.ResourceId, m[f.ColumnName])
+	ret.EventId = fmt.Sprintf("%x", md5.Sum([]byte(event)))
+	ret.DateCreated = fmt.Sprintf("%v", m[f.ColumnName]) // or time.Now if configured
+	if m[f.ColumnName] == nil {
+		ret.DateCreated = ""
+	}
+	ret.FieldChanges = make(map[string]*specs.Change)
+	ret.FieldChanges[f.ColumnName] = &specs.Change{
+		NewValue: ret.DateCreated,
+	}
+	return ret
+}
+
 func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan<- *klib.Message) error {
 
 	limit := self.GetLimit() //todo load from config
@@ -197,7 +230,7 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 		sent := 0
 		for _, found := range founds {
 			topush := new(klib.Message)
-			evt := msiToEventSpec(primaryKeyNames, f, found)
+			evt := self.msiToEventSpec(primaryKeyNames, f, found)
 			topush.Value, err = json.Marshal(evt)
 			if err != nil {
 				return err
