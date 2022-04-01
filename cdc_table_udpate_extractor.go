@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	extraction.RegisterType(new(TableUpdated))
+	// extraction.RegisterType(new(TableUpdated))
 }
 
 type TableUpdated struct {

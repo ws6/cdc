@@ -26,7 +26,8 @@
 local*
 *.env
 app.conf
-
+app.conf.bak
+*.conf.bak
 swagger/
 kafka.rc
 .pprof

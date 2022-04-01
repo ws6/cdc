@@ -22,7 +22,7 @@ const (
 )
 
 func init() {
-	transformation.RegisterType(new(FieldUpdated))
+	// transformation.RegisterType(new(FieldUpdated))
 }
 
 //transform from table update events to table fields updates events
@@ -111,7 +111,7 @@ func (self *TableUpdateEvent) GetProgressorKey(fieldName string) string {
 	return fmt.Sprintf(`%s.%s.%s`, self.SchemaName, self.TableName, fieldName)
 }
 
-func (self *TableUpdateEvent) GetDateTimeFieldQuery() string {
+func GetDateTimeFieldQuery(SchemaName, TableName string) string {
 	return fmt.Sprintf(
 		`select schema_name(t.schema_id)    as schema_name
       ,t.name as table_name ,
@@ -128,9 +128,13 @@ where type_name(user_type_id) in ('date', 'datetimeoffset',
     and schema_name(t.schema_id) ='%s' 
 order by t.name,
          c.column_id;`,
-		self.TableName,
-		self.SchemaName,
+		TableName,
+		SchemaName,
 	)
+}
+
+func (self *TableUpdateEvent) GetDateTimeFieldQuery() string {
+	return GetDateTimeFieldQuery(self.SchemaName, self.TableName)
 }
 
 func (self *FieldUpdated) GetDateTimeField(ctx context.Context, e *TableUpdateEvent) ([]map[string]interface{}, error) {
@@ -145,6 +149,7 @@ type TableField struct {
 	ColumnName  string `json:"column_name"`
 	DataType    string `json:"data_type"`
 	SecondScale int    `json:"second_scale"`
+	MaxValue    string `json:"max_value"`
 }
 
 func tableFieldfromMsi(m map[string]interface{}) (*TableField, error) {

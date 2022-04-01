@@ -274,8 +274,14 @@ func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *k
 	}
 
 	//build query with progressor
-	f := tableField
-	fmt.Println(`field is   in filter`, f)
+	f0 := tableField
+	//enrich the field
+	f, err := UpdateFieldInfo(ctx, self.db, f0)
+	if err != nil {
+		return fmt.Errorf(`UpdateFieldInfo:%s`, err.Error())
+	}
+	fmt.Println(`field updated`, f)
+	f.MaxValue = f0.MaxValue //copy
 
 	k := fmt.Sprintf(`%s.%s.%s`, f.SchameName, f.TableName, f.ColumnName)
 	ps := func(_k string) progressSaver {
