@@ -97,7 +97,7 @@ func (self *TableUpdated) getTablesInclude() []string {
 func (self *TableUpdated) makeQuery(p *progressor.Progress) string {
 	timefitler := ""
 	if !p.Timestamp.IsZero() {
-		timefitler = fmt.Sprintf(`AND modify_date>'%s'`, dbhelper.ToSQLDatetimeStringLocalMilliSecond(p.Timestamp))
+		timefitler = fmt.Sprintf(`AND t1.last_user_update>'%s'`, dbhelper.ToSQLDatetimeStringLocalMilliSecond(p.Timestamp))
 	}
 	tablesIncludeFilter := ""
 	tablesInclude := self.getTablesInclude()
@@ -106,14 +106,28 @@ func (self *TableUpdated) makeQuery(p *progressor.Progress) string {
 		for _, t := range tablesInclude {
 			ts = append(ts, fmt.Sprintf(`'%s'`, t))
 		}
-		tablesIncludeFilter = fmt.Sprintf(`AND name in ( %s )`, strings.Join(ts, ","))
+		tablesIncludeFilter = fmt.Sprintf(`AND t2.name in ( %s )`, strings.Join(ts, ","))
 	}
 	return fmt.Sprintf(`
-	SELECT  schema_name(schema_id) as schema_name , * FROM sys.tables
-where 1=1 
-%s
-%s
-order by modify_date asc `,
+	SELECT  
+t2.name 
+, max(schema_name(t2.schema_id))  as schema_name  
+,max(t1.last_user_update) as modify_date
+,max(t2.create_date) as create_date 
+,max(t2.type_desc) as type_desc 
+,max(t2.type) as type
+ 
+FROM sys.dm_db_index_usage_stats t1 
+join sys.tables t2 on t1.object_id = t2.object_id 
+   
+WHERE  1=1 
+ and t2.type= 'U'
+ %s
+  
+ %s
+
+ group by t2.name
+ order by max(t1.last_user_update) asc `,
 		timefitler,
 		tablesIncludeFilter,
 	)
