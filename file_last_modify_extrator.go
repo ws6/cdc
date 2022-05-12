@@ -65,6 +65,16 @@ func (self *FileLastMod) toMsi(f fs.FileInfo) map[string]interface{} {
 	return ret
 }
 
+// {
+//   "IsDir": false,
+//   "ModTime": "2020-11-30T12:21:32.4280474-08:00",
+//   "Mode": 438,
+//   "Name": "O000005_KB_13Nov2020.xlsm",
+//   "Size": 559306,
+//   "abs_path": "\\\\usfc-prd-isi01\\CGLS_Onco\\QF-0345\\TSO\\O000005_KB_13Nov2020.xlsm",
+//   "modify_date": "2020-11-30T12:21:32.4280474-08:00"
+// }
+
 func (self *FileLastMod) GetChan(ctx context.Context, _p *progressor.Progress) (chan map[string]interface{}, error) {
 	p := new(progressor.Progress)
 	_p.Copy(p)
@@ -99,7 +109,6 @@ func (self *FileLastMod) GetChan(ctx context.Context, _p *progressor.Progress) (
 
 			for _, f := range files {
 				if !self.IsNewer(f, p) {
-					fmt.Println(`not newer`, f.ModTime(), p.Timestamp)
 					continue
 				}
 
@@ -109,7 +118,7 @@ func (self *FileLastMod) GetChan(ctx context.Context, _p *progressor.Progress) (
 				case <-ctx.Done():
 					return
 				case ret <- topub:
-					// fmt.Println(topub, p)
+
 				}
 			}
 
