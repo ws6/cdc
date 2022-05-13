@@ -46,6 +46,9 @@ func (self *FileLastMod) Close() error {
 }
 
 func (self *FileLastMod) IsNewer(f fs.FileInfo, p *progressor.Progress) bool {
+	n1 := f.ModTime().UnixNano()
+	return n1 > p.Number
+
 	if p.Timestamp.IsZero() {
 		return true
 	}
@@ -152,9 +155,17 @@ func (self *FileLastMod) UpdateProgress(item map[string]interface{}, p *progress
 		fmt.Println(`modify_date`, err.Error())
 		return nil
 	}
+
 	if modify_date != nil {
+
 		if modify_date.After(p.Timestamp) {
+			//switching to UnixSecond
 			p.Timestamp = *modify_date
+		}
+		//!!!second level
+		n := modify_date.UnixNano()
+		if n > p.Number {
+			p.Number = n
 		}
 
 	}
