@@ -1,4 +1,4 @@
-package cdc
+package mssql
 
 import (
 	"context"
@@ -23,9 +23,15 @@ import (
 	"github.com/ws6/msi"
 )
 
+const (
+	DEFAULT_LIMIT = 1000
+)
+
 func init() {
 	transformation.RegisterType(new(FieldIncrementatlRefresh))
 }
+
+type progressSaver func(*progressor.Progress) error
 
 type FieldIncrementatlRefresh struct {
 	db                 *msi.Msi
@@ -36,7 +42,7 @@ type FieldIncrementatlRefresh struct {
 }
 
 func (self *FieldIncrementatlRefresh) Type() string {
-	return `FieldIncrementatlRefresh`
+	return `PQFieldIncrementatlRefresh`
 }
 func (self *FieldIncrementatlRefresh) Name() string {
 	site, err := self.cfg.Configer.String(
@@ -59,11 +65,16 @@ func (self *FieldIncrementatlRefresh) NewTransformer(cfg *confighelper.SectionCo
 	ret.cfg = cfg
 	//TODO open database
 	var err error
-	key := cfg.SectionName
-	ret.db, err = createIfNotExistDb(key, cfg.ConfigMap)
+	connstr := ret.cfg.ConfigMap[`conn`]
+	dbname := ret.cfg.ConfigMap[`db_name`]
+	// connstr, err = pq.ParseURL(connstr)
+	// if err != nil {
+	// 	return nil, fmt.Errorf(`pq.ParseURL:%s`, err.Error())
+	// }
 
+	ret.db, err = msi.NewDb(msi.POSTGRES, connstr, dbname, ``)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(`NewDb:%s`, err.Error())
 	}
 	ret.addMetaFieldToSpec = true //default off
 	if removeMetaFieldStr := ret.cfg.ConfigMap[`remove_meta_field`]; removeMetaFieldStr == `true` {
@@ -135,6 +146,35 @@ INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS KU
 	return ret, nil
 }
 
+func (self *FieldIncrementatlRefresh) GenerateIncrementalRefreshQueryWithInteger(f *TableField, begin int64, limit int, offset int64) string {
+	timefilter := fmt.Sprintf(`
+	 AND  "%s" > %d
+	`, f.ColumnName, begin,
+	)
+
+	offsetlimitStr := fmt.Sprintf(` 
+		LIMIT  %d  OFFSET %d`, limit, offset)
+	query := `
+	SELECT
+	*
+	FROM  %s."%s"
+	WHERE 1=1
+	 
+	%s
+	ORDER BY "%s" ASC
+	%s
+	`
+	query = fmt.Sprintf(query,
+		f.SchameName,
+		f.TableName,
+		timefilter,
+		f.ColumnName,
+		offsetlimitStr,
+	)
+
+	return query
+}
+
 func (self *FieldIncrementatlRefresh) GenerateIncrementalRefreshQueryWithTime(f *TableField, p time.Time, limit int, offset int64) string {
 	timefilter := ""
 	timelayout := "2006-01-02 15:04:05"
@@ -200,6 +240,81 @@ func (self *FieldIncrementatlRefresh) msiToEventSpec(primaryKeyNames []string, f
 }
 
 func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan<- *klib.Message) error {
+	if strings.Contains(f.DataType, "time") {
+		return self.GenerateItemByTime(ctx, f, ps, p, recv)
+	}
+	switch f.DataType {
+	case "bigint":
+		return self.GenerateItemByInt(ctx, f, ps, p, recv)
+	case "integer":
+		return self.GenerateItemByInt(ctx, f, ps, p, recv)
+	}
+	return nil
+}
+
+func (self *FieldIncrementatlRefresh) GenerateItemByInt(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan<- *klib.Message) error {
+
+	limit := self.GetLimit() //todo load from config
+	offset := int64(0)
+	primaryKeyNames, err := self.GetPrimaryKeyName(ctx, f)
+	if err != nil {
+		fmt.Println(`GetPrimaryKeyName`, err.Error())
+		return err
+	}
+	begin := p.Number
+
+	pushed := int64(0)
+	for {
+		//TODO check what field dataType is to choose a query
+		query := self.GenerateIncrementalRefreshQueryWithInteger(f, begin, limit, offset)
+
+		offset += int64(limit)
+		founds, err := self.db.MapContext(ctx, self.db.Db, query, nil)
+
+		if err != nil {
+			fmt.Println(query)
+			return err
+		}
+		if len(founds) == 0 {
+			return nil
+		}
+		sent := 0
+		for _, found := range founds {
+			topush := new(klib.Message)
+			evt := self.msiToEventSpec(primaryKeyNames, f, found)
+			topush.Value, err = json.Marshal(evt)
+			if err != nil {
+				return err
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case recv <- topush:
+				sent++
+				//update progress
+				if n1, err := msi.ToInt64(found[f.ColumnName]); err == nil {
+					p.Number = n1
+				}
+				pushed++
+				if (pushed)%int64(limit) == 0 {
+					if err := ps(p); err != nil {
+						fmt.Println(`progressSaver`, err.Error())
+					}
+				}
+			}
+		}
+
+		if len(founds) < limit {
+			return nil
+		}
+
+	}
+
+	return nil
+
+}
+
+func (self *FieldIncrementatlRefresh) GenerateItemByTime(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan<- *klib.Message) error {
 
 	limit := self.GetLimit() //todo load from config
 	offset := int64(0)
@@ -214,12 +329,13 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 	}
 	pushed := int64(0)
 	for {
+		//TODO check what field dataType is to choose a query
 		query := self.GenerateIncrementalRefreshQueryWithTime(f, begin, limit, offset)
 		fmt.Println(`sending query`)
 
 		offset += int64(limit)
 		founds, err := self.db.MapContext(ctx, self.db.Db, query, nil)
-		fmt.Println(query)
+
 		if err != nil {
 			fmt.Println(query)
 			return err
@@ -252,7 +368,7 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 				}
 			}
 		}
-		fmt.Println(`sent`, sent)
+
 		if len(founds) < limit {
 			return nil
 		}
@@ -274,19 +390,19 @@ func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *k
 	}
 
 	//build query with progressor
-	f0 := tableField
+	f := tableField
 	//enrich the field
-	f, err := UpdateFieldInfo(ctx, self.db, f0)
-	if err != nil {
-		return fmt.Errorf(`UpdateFieldInfo:%s`, err.Error())
-	}
+	// f, err := UpdateFieldInfo(ctx, self.db, f0)
+	// if err != nil {
+	// 	return fmt.Errorf(`UpdateFieldInfo:%s`, err.Error())
+	// }
 	fmt.Println(`field updated`, f)
-	f.MaxValue = f0.MaxValue //copy
+	f.MaxValue = f.MaxValue //copy
 
 	k := fmt.Sprintf(`%s.%s.%s`, f.SchameName, f.TableName, f.ColumnName)
 	ps := func(_k string) progressSaver {
 		return func(_p *progressor.Progress) error {
-			fmt.Println(`saving progress`, k, _p)
+
 			return progr.SaveProgress(_k, _p)
 		}
 	}(k)

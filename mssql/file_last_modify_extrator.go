@@ -1,4 +1,4 @@
-package cdc
+package mssql
 
 //file_last_modify_extractor.go detect given list of directories one-level down last-modified
 

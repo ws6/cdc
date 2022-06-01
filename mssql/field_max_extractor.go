@@ -1,4 +1,4 @@
-package cdc
+package mssql
 
 //field_max_extractor.go to pull the max value on cron schedule
 

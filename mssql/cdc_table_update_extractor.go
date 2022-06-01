@@ -1,4 +1,4 @@
-package cdc
+package mssql
 
 //cdc_time_stamps.go collect data/timestamps field for database
 //assume the time is incrementally added into the database.

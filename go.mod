@@ -24,6 +24,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/klauspost/compress v1.13.5 // indirect
+	github.com/lib/pq v1.10.6 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mijia/modelq v0.0.0-20171015114825-4f1eeb750b3f // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect

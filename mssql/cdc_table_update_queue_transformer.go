@@ -1,4 +1,4 @@
-package cdc
+package mssql
 
 //cdc_table_update_transformer.go take the event mess from TimeCDC to interact with each individual tab;e updates
 import (
