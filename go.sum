@@ -456,6 +456,8 @@ github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijb
 github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtXRu0=
 github.com/ws6/calculator v0.0.0-20220330210312-4752aaffe4a5 h1:D6b8Qcw1ZlDlqcMaxHaW7SB0sisP+IdKVXz1YrojxUY=
 github.com/ws6/calculator v0.0.0-20220330210312-4752aaffe4a5/go.mod h1:3ggaPMe7JlXm9aC3bBn0DAzXBcVI/lHkI667GCS5l7w=
+github.com/ws6/calculator v0.0.0-20220725193212-8536e05040f5 h1:tiCs6sGyNyLhEXZVdNmBBDy/pR5fKgvhbuQKEL5nHOo=
+github.com/ws6/calculator v0.0.0-20220725193212-8536e05040f5/go.mod h1:3ggaPMe7JlXm9aC3bBn0DAzXBcVI/lHkI667GCS5l7w=
 github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022 h1:OPWNpquBo7L/87DFo87FQ6loWIFOrc/b3z7k9PVWeGM=
 github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022/go.mod h1:Zy+CxG5w0QdNwI3opggkmlwZ485WLMDN1Kym85tryfY=
 github.com/ws6/klib v0.0.0-20220330210154-d1df7f5ba76b h1:+W/opy+yTGiY5Xo+fu66y37MZgiSyu6MzbwIBEMtjQM=

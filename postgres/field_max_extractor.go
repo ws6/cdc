@@ -182,7 +182,7 @@ func (self *FieldMaxExtractor) addFieldDataType(ctx context.Context, f *TableFie
 
 func (self *FieldMaxExtractor) GetChan(ctx context.Context, p *progressor.Progress) (chan map[string]interface{}, error) {
 
-	ret := make(chan map[string]interface{})
+	ret := make(chan map[string]interface{}, 100)
 	go func() {
 		defer close(ret)
 		for _, f := range self.fields {
@@ -198,6 +198,7 @@ func (self *FieldMaxExtractor) GetChan(ctx context.Context, p *progressor.Progre
 				continue
 			}
 			if maxVal == f.MaxValue {
+				fmt.Println(` maxVal == f.MaxValue `, maxVal, f.MaxValue)
 				//prevent excessive messages
 				continue
 			}
@@ -210,6 +211,8 @@ func (self *FieldMaxExtractor) GetChan(ctx context.Context, p *progressor.Progre
 			case <-ctx.Done():
 				return
 			case ret <- topub:
+				fmt.Println(topub)
+				time.Sleep(5 * time.Second) //problem it get closed too early
 			}
 
 		}

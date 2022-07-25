@@ -240,9 +240,11 @@ func (self *FieldIncrementatlRefresh) msiToEventSpec(primaryKeyNames []string, f
 }
 
 func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan<- *klib.Message) error {
+
 	if strings.Contains(f.DataType, "time") {
 		return self.GenerateItemByTime(ctx, f, ps, p, recv)
 	}
+
 	switch f.DataType {
 	case "bigint":
 		return self.GenerateItemByInt(ctx, f, ps, p, recv)
@@ -253,7 +255,9 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 }
 
 func (self *FieldIncrementatlRefresh) GenerateItemByInt(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan<- *klib.Message) error {
-
+	defer func() {
+		fmt.Println(`GenerateItemByInt exit`)
+	}()
 	limit := self.GetLimit() //todo load from config
 	offset := int64(0)
 	primaryKeyNames, err := self.GetPrimaryKeyName(ctx, f)
@@ -275,14 +279,19 @@ func (self *FieldIncrementatlRefresh) GenerateItemByInt(ctx context.Context, f *
 			fmt.Println(query)
 			return err
 		}
+
 		if len(founds) == 0 {
+			fmt.Println(`zero found`)
 			return nil
 		}
+
 		sent := 0
 		for _, found := range founds {
+
 			topush := new(klib.Message)
 			evt := self.msiToEventSpec(primaryKeyNames, f, found)
 			topush.Value, err = json.Marshal(evt)
+			// topush.Key=fmt.Sprintf(`%d`,f)
 			if err != nil {
 				return err
 			}
@@ -296,10 +305,12 @@ func (self *FieldIncrementatlRefresh) GenerateItemByInt(ctx context.Context, f *
 					p.Number = n1
 				}
 				pushed++
-				if (pushed)%int64(limit) == 0 {
-					if err := ps(p); err != nil {
-						fmt.Println(`progressSaver`, err.Error())
-					}
+
+			}
+
+			if (pushed)%int64(limit) == 0 {
+				if err := ps(p); err != nil {
+					fmt.Println(`progressSaver`, err.Error())
 				}
 			}
 		}
@@ -361,10 +372,11 @@ func (self *FieldIncrementatlRefresh) GenerateItemByTime(ctx context.Context, f 
 					p.Timestamp = t1
 				}
 				pushed++
-				if (pushed)%int64(limit) == 0 {
-					if err := ps(p); err != nil {
-						fmt.Println(`progressSaver`, err.Error())
-					}
+
+			}
+			if (pushed)%int64(limit) == 0 {
+				if err := ps(p); err != nil {
+					fmt.Println(`progressSaver`, err.Error())
 				}
 			}
 		}
@@ -402,7 +414,7 @@ func (self *FieldIncrementatlRefresh) Transform(ctx context.Context, eventMsg *k
 	k := fmt.Sprintf(`%s.%s.%s`, f.SchameName, f.TableName, f.ColumnName)
 	ps := func(_k string) progressSaver {
 		return func(_p *progressor.Progress) error {
-
+			fmt.Println(`progressSaver`, _p)
 			return progr.SaveProgress(_k, _p)
 		}
 	}(k)
