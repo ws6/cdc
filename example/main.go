@@ -11,7 +11,7 @@ import (
 	_ "github.com/ws6/calculator/extraction/progressor/msdbprogressor"
 	"github.com/ws6/calculator/runner"
 
-	_ "github.com/ws6/cdc/postgres"
+	_ "github.com/ws6/cdc/mssql"
 )
 
 func main() {

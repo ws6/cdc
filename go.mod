@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/denisenkom/go-mssqldb v0.12.0
-	github.com/ws6/calculator v0.0.0-20220725224751-9605ff4d7540
+	github.com/ws6/calculator v0.0.0-00010101000000-000000000000
 	github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022
 	github.com/ws6/klib v0.0.0-20220330210154-d1df7f5ba76b
 	github.com/ws6/msi v1.2.2-0.20220311180953-e1a28ea5023c

@@ -215,11 +215,10 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 	pushed := int64(0)
 	for {
 		query := self.GenerateIncrementalRefreshQueryWithTime(f, begin, limit, offset)
-		fmt.Println(`sending query`)
 
 		offset += int64(limit)
 		founds, err := self.db.MapContext(ctx, self.db.Db, query, nil)
-		fmt.Println(query)
+
 		if err != nil {
 			fmt.Println(query)
 			return err
