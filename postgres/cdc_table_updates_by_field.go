@@ -255,8 +255,10 @@ func (self *FieldIncrementatlRefresh) GenerateItem(ctx context.Context, f *Table
 }
 
 func (self *FieldIncrementatlRefresh) GenerateItemByInt(ctx context.Context, f *TableField, ps progressSaver, p *progressor.Progress, recv chan<- *klib.Message) error {
+
+	pushed := int64(0)
 	defer func() {
-		fmt.Println(`GenerateItemByInt exit`)
+		fmt.Println(`GenerateItemByInt exit; pushed=`, pushed)
 	}()
 	limit := self.GetLimit() //todo load from config
 	offset := int64(0)
@@ -267,11 +269,10 @@ func (self *FieldIncrementatlRefresh) GenerateItemByInt(ctx context.Context, f *
 	}
 	begin := p.Number
 
-	pushed := int64(0)
 	for {
 		//TODO check what field dataType is to choose a query
 		query := self.GenerateIncrementalRefreshQueryWithInteger(f, begin, limit, offset)
-
+		// fmt.Println(query)
 		offset += int64(limit)
 		founds, err := self.db.MapContext(ctx, self.db.Db, query, nil)
 

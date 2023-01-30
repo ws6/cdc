@@ -1,0 +1,65 @@
+[extractors]
+installed=lablynx_table_updated_1
+scheduler.lablynx_table_updated_1=@every 1m
+
+
+[transformers]
+installed=lablynx_field_incref_1
+
+[eptso_dev]
+bootstrap.servers=pkc-4kgmg.us-west-2.aws.confluent.cloud:9092
+security.protocol=SASL_SSL
+sasl.mechanisms=PLAIN
+sasl.username=2T2DKFLRG5PARKXC
+sasl.password= M50Zt9y/bM8J7XuiK49ZhM7Tf6QlPvXjB5hqd2ACsYfzQ3DtXXzWFyT7V6RoFvg1
+
+[prog_lablynx_1]
+type=MSDB
+database=calculator
+host=USSDDEVSQL01E
+user=svc_ftsreporting_prd_rw
+password=gTEieUPWKNP80JYjMg0k
+namespace=prog_lablynx_2-1_
+
+
+
+[lablynx_table_updated_1]
+type=FieldMaxExtractor
+site=lablynx-prod
+progressor=prog_lablynx_1
+usfc_lablynx_prod=[usfc_lablynx_prod]
+event_bus_topic=lablynx_table_updated_2
+eptso_dev=[eptso_dev]
+to_scan_fields=dbo.ELB_GLOBALAUDIT.SAVEDATE
+
+
+[lablynx_field_incref_1]
+type=FieldIncrementatlRefresh
+site=lablynx-prod
+
+progressor=prog_lablynx_1
+consumer_section=eptso_dev
+consumer_group_id=lablynx_field_incref_1
+event_bus_topic=lablynx_table_updated_2
+producer_section=eptso_dev
+message_bus_topic=eptso_cdc_event_bus_dev_2
+
+usfc_lablynx_prod=[usfc_lablynx_prod]
+
+dlock_config_section=dlock_config_1
+
+remove_meta_field=false
+
+
+[usfc_lablynx_prod]
+
+
+msdb_prefix=usfc_lablynx_prod
+usfc_lablynx_prod.host=USSD-PRD-MCN03K
+usfc_lablynx_prod.database=VER_ONC
+usfc_lablynx_prod.user=	svc_sqltso
+usfc_lablynx_prod.password=	$Br1ng.Tr33N0wFD41
+
+[dlock_config_1]
+redis_config_string = ussd-prd-rbmq04:6379,100,,0,600
+dlock_prefix =matcha-cdc-dev-2x
