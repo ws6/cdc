@@ -7,7 +7,7 @@ require (
 	github.com/lib/pq v1.10.6
 	github.com/ws6/calculator v0.0.0-20230130235231-bcb088ae1cf3
 	github.com/ws6/dlock v0.0.0-20210914210446-143d6f4ba022
-	github.com/ws6/klib v0.0.0-20230222194218-87f15c501686
+	github.com/ws6/klib v0.0.0-20230420210126-be163dc20133
 	github.com/ws6/msi v1.2.2
 )
 
@@ -23,7 +23,7 @@ require (
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/klauspost/compress v1.15.15 // indirect
+	github.com/klauspost/compress v1.16.5 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mijia/modelq v0.0.0-20171015114825-4f1eeb750b3f // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
@@ -34,13 +34,13 @@ require (
 	github.com/prometheus/common v0.26.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/segmentio/kafka-go v0.4.38 // indirect
+	github.com/segmentio/kafka-go v0.4.39 // indirect
 	github.com/shiena/ansicolor v0.0.0-20200904210342-c7312218db18 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/streadway/amqp v1.0.0 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
 	golang.org/x/net v0.0.0-20220706163947-c90051bbdb60 // indirect
-	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
